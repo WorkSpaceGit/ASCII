@@ -2,93 +2,88 @@
 <html lang="uk">
 <head>
 <meta charset="UTF-8">
-<title>ASCII Двостороння дорога</title>
+<title>ASCII Двостороння Дорога</title>
+<link rel="icon" href="data:image/svg+xml,
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>
+  <text x='50%' y='55%' font-size='40' text-anchor='middle' fill='white' font-family='monospace'>=[-]=</text>
+</svg>">
 <style>
-body{
-  margin:0; height:100vh; background:#191919; font-family:monospace; white-space:pre; overflow:hidden;
+body {
+  margin:0; height:100vh; background:black;
+  font-family:monospace; white-space:pre; overflow:hidden;
 }
-.car{position:absolute; font-weight:bold;}
-.lane, .divider{position:absolute; width:100%;}
-.lane{border-top:1px solid gray; opacity:0.3;}
-.divider{border-top:4px double yellow; opacity:0.8;}
+.car { position:absolute; font-weight:bold; }
+.lane, .divider { position:absolute; width:100%; }
+.lane { border-top:1px solid gray; opacity:0.3; }
+.divider { border-top:4px double yellow; opacity:0.8; }
 </style>
 </head>
 <body>
 <script>
 const carSprites = ['=(o)≡','≡[+]≡','(o)=(o)=[:]','=[:]=','<[•)>','=[-]=','[]=o=[]','<(o)>'],
-      carColors = ['red','orange','yellow','lime','cyan','blue','magenta','white'],
+      carColors  = ['red','orange','yellow','lime','cyan','blue','magenta','white'],
       cars = [];
 
-const laneCount = 3;     // кількість смуг
-const safeDistance = 7;  // мінімальна відстань у символах
-const laneHeight = 30;
-const screenWidth = window.innerWidth;
-const cellWidth = 10;
+const laneCount = 3,
+      safeDistance = 7,
+      laneHeight = 30,
+      screenWidth = innerWidth,
+      cellWidth = 10,
+      maxCells = screenWidth / cellWidth;
 
-// створення елементів дороги
-function createElement(cls, top){
+const addEl = (cls, top) => {
   const el = document.createElement('div');
   el.className = cls;
   el.style.top = top + 'px';
   document.body.appendChild(el);
   return el;
-}
+};
 
-// смуги та роздільники
-const laneTops = [];
-for(let i=0;i<laneCount*2;i++){
-  let top = i*laneHeight + (i>=laneCount?laneHeight/2:0);
-  laneTops.push(top);
-  createElement('lane', top);
-}
-createElement('divider', laneCount*laneHeight);
-createElement('divider', laneCount*laneHeight + laneHeight/2);
-createElement('lane', laneTops[laneTops.length-1] + laneHeight);
+const laneTops = Array.from({length: laneCount*2}, (_,i)=>
+  i*laneHeight + (i>=laneCount?laneHeight/2:0)
+);
+laneTops.forEach(t=>addEl('lane',t));
+[ laneCount*laneHeight, laneCount*laneHeight + laneHeight/2 ]
+  .forEach(t=>addEl('divider',t));
+addEl('lane', laneTops.at(-1) + laneHeight);
 
-// створення машини
-function createCar(sprite, color, lane){
-  const car = document.createElement('div');
+carSprites.forEach((sprite,i)=>{
+  const lane = i % (laneCount*2),
+        car  = document.createElement('div');
   car.className = 'car';
   car.innerText = sprite;
-  car.style.color = color;
-  car.style.top = laneTops[lane] + 5 + (lane === laneCount?7:0) + 'px';
+  car.style.color = carColors[i % carColors.length];
+  car.style.top = laneTops[lane] + (lane===laneCount?12:5) + 'px';
   document.body.appendChild(car);
   
   cars.push({
     element: car,
-    x: Math.random() * (screenWidth / cellWidth),
+    x: Math.random() * maxCells,
     speed: (0.5 + Math.random()*2)/16,
     direction: lane < laneCount ? 1 : -1,
-    lane: lane
+    lane
   });
-}
+});
 
-// створюємо машини
-carSprites.forEach((sprite,i)=>createCar(sprite, carColors[i%carColors.length], i%(laneCount*2)));
-
-// перевірка безпечної дистанції та зменшення швидкості
-function adjustSpeed(car){
-  let slowed = cars.some(other=>{
-    if(other===car || other.lane!==car.lane) return false;
-    return (car.direction>0 && other.x>car.x && other.x-car.x<safeDistance) ||
-           (car.direction<0 && car.x>other.x && car.x-other.x<safeDistance);
-  });
+const adjustSpeed = car => {
+  const slowed = cars.some(other =>
+    other !== car && other.lane === car.lane &&
+    ((car.direction>0 && other.x>car.x && other.x-car.x<safeDistance) ||
+     (car.direction<0 && car.x>other.x && car.x-other.x<safeDistance))
+  );
   car.currentSpeed = slowed ? car.speed*0.3 : car.speed;
-}
+};
 
-// анімація
 (function animate(){
   cars.forEach(c=>{
     adjustSpeed(c);
     c.x += (c.currentSpeed || c.speed) * c.direction;
-    const maxCells = screenWidth/cellWidth;
-    if(c.x>maxCells && c.direction>0) c.x = -c.element.innerText.length;
-    if(c.x<-c.element.innerText.length && c.direction<0) c.x = maxCells;
-    c.element.style.left = c.x*cellWidth + 'px';
+    if(c.x > maxCells && c.direction>0) c.x = -c.element.innerText.length;
+    if(c.x < -c.element.innerText.length && c.direction<0) c.x = maxCells;
+    c.element.style.left = (c.x*cellWidth) + 'px';
   });
   requestAnimationFrame(animate);
 })();
 </script>
 </body>
-
 </html>
