@@ -60,7 +60,8 @@ carSprites.forEach((sprite,i)=>{
     element: car,
     x: Math.random() * maxCells,
     speed: (0.5 + Math.random()*2)/16,
-    direction: lane < laneCount ? 1 : -1,
+    // верхні смуги (0..2) рухаються вліво (-1), нижні (3..5) вправо (+1)
+    direction: lane < laneCount ? -1 : 1,
     lane
   });
 });
@@ -87,7 +88,3 @@ const adjustSpeed = car => {
 </script>
 </body>
 </html>
-
-
-
-
