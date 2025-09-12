@@ -12,8 +12,8 @@ body {
   margin:0; height:100vh; background:#191919;
   font-family:monospace; white-space:pre; overflow:hidden;
 }
-.car { position:absolute; font-weight:bold; }
-.lane, .divider { position:absolute; width:100%; }
+.car { position:absolute; font-weight:bold; will-change:transform; }
+.lane, .divider { position:absolute; width:100%; pointer-events:none; }
 .lane { border-top:1px solid gray; opacity:0.3; }
 .divider { border-top:4px double yellow; opacity:0.8; }
 </style>
@@ -39,52 +39,87 @@ const addEl = (cls, top) => {
   return el;
 };
 
+// координати смуг
 const laneTops = Array.from({length: laneCount*2}, (_,i)=>
   i*laneHeight + (i>=laneCount?laneHeight/2:0)
 );
+
+// лінії дороги
 laneTops.forEach(t=>addEl('lane',t));
 [ laneCount*laneHeight, laneCount*laneHeight + laneHeight/2 ]
   .forEach(t=>addEl('divider',t));
 addEl('lane', laneTops.at(-1) + laneHeight);
 
+// машини
 carSprites.forEach((sprite,i)=>{
   const lane = i % (laneCount*2),
         car  = document.createElement('div');
   car.className = 'car';
-  car.innerText = sprite;
+  car.textContent = sprite;
   car.style.color = carColors[i % carColors.length];
   car.style.top = laneTops[lane] + (lane===laneCount?12:5) + 'px';
   document.body.appendChild(car);
-  
+
   cars.push({
     element: car,
     x: Math.random() * maxCells,
+    spriteLen: sprite.length, // кешуємо довжину
     speed: (0.5 + Math.random()*2)/16,
-    // верхні смуги (0..2) рухаються вліво (-1), нижні (3..5) вправо (+1)
     direction: lane < laneCount ? -1 : 1,
-    lane
+    lane,
+    currentSpeed: 0
   });
 });
 
-const adjustSpeed = car => {
-  const slowed = cars.some(other =>
-    other !== car && other.lane === car.lane &&
-    ((car.direction>0 && other.x>car.x && other.x-car.x<safeDistance) ||
-     (car.direction<0 && car.x>other.x && car.x-other.x<safeDistance))
-  );
-  car.currentSpeed = slowed ? car.speed*0.3 : car.speed;
-};
-
-(function animate(){
+// групуємо машини по смугах для швидшого пошуку
+function adjustSpeeds() {
+  const byLane = {};
   cars.forEach(c=>{
-    adjustSpeed(c);
-    c.x += (c.currentSpeed || c.speed) * c.direction;
-    if(c.x > maxCells && c.direction>0) c.x = -c.element.innerText.length;
-    if(c.x < -c.element.innerText.length && c.direction<0) c.x = maxCells;
-    c.element.style.left = (c.x*cellWidth) + 'px';
+    (byLane[c.lane] ||= []).push(c);
   });
-  requestAnimationFrame(animate);
-})();
+
+  for(const lane in byLane){
+    const arr = byLane[lane];
+    arr.sort((a,b)=>a.x-b.x); // впорядкування по позиції
+
+    arr.forEach((car,idx)=>{
+      let slowed = false;
+      const dir = car.direction;
+      const neighbor = dir>0 ? arr[idx+1] : arr[idx-1];
+      if(neighbor){
+        const dist = Math.abs(neighbor.x - car.x);
+        if((dir>0 && neighbor.x>car.x && dist<safeDistance) ||
+           (dir<0 && car.x>neighbor.x && dist<safeDistance)){
+          slowed = true;
+        }
+      }
+      car.currentSpeed = slowed ? car.speed*0.3 : car.speed;
+    });
+  }
+}
+
+// --- Адаптивна анімація ---
+let active = true;
+document.addEventListener("visibilitychange", ()=>{
+  active = !document.hidden;
+});
+
+function animate(){
+  adjustSpeeds();
+  cars.forEach(c=>{
+    c.x += c.currentSpeed * c.direction;
+    if(c.x > maxCells && c.direction>0) c.x = -c.spriteLen;
+    if(c.x < -c.spriteLen && c.direction<0) c.x = maxCells;
+    c.element.style.transform = `translateX(${c.x*cellWidth}px)`;
+  });
+
+  if(active){
+    requestAnimationFrame(animate); // ~60 FPS
+  } else {
+    setTimeout(animate, 1000/15);   // ~15 FPS
+  }
+}
+animate();
 </script>
 </body>
 </html>
